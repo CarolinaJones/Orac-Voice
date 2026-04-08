@@ -2,7 +2,7 @@
 
 ![ORAC Terminal Interface](resources/misc/orac-voice.png?text=ORAC+Terminal+UI)
 
-**ORAC-Voice** is a fully autonomous, lore-accurate, voice-interactive AI based on ORAC from the classic British sci-fi series *Blake's 7*.
+**ORAC-Voice** is a fully autonomous, lore-accurate, voice-interactive AI, based on ORAC from the classic British sci-fi series *Blake's 7*.
 
 I have always loved this show and have fond memories of watching it with my dad, when I was a kid. Jenna was always my favorite, with Avon taking second place. I always wanted my own ORAC, and this project is the first step in creating the brains, which hopefully, I will then put into a perspex chassis..
 
