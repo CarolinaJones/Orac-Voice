@@ -1,6 +1,6 @@
 # ORAC: (Blake's 7) AI Voice-Chat & Terminal
 
-![ORAC Terminal Interface](https://via.placeholder.com/800x400.png?text=Add+Screenshot+Here) *(Picture TBC)*
+![ORAC Terminal Interface](resources/misc/orac-voice.png?text=ORAC+Terminal+UI)
 
 **ORAC-Voice** is a fully autonomous, lore-accurate, voice-interactive AI based on ORAC from the classic British sci-fi series *Blake's 7*.
 
