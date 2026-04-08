@@ -87,7 +87,7 @@ hf download mlx-community/whisper-large-v3-turbo --local-dir ./whisper/whisper-l
 ```
 **5. 'Hack' to allow Terminal to use Personal Voice:**
 
-It seems to me, the best way to make this work, is to paste this code into your Terminal app.. and let it run.
+To authenicate Personal Voice in Terminal, paste this code in to your Terminal shell and press `Return`.
 ```bash
 echo '#import <AVFoundation/AVFoundation.h>
 int main(){ 
