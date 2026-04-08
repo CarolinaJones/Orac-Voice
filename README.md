@@ -85,7 +85,20 @@ pip install sounddevice==0.4.3 mlx-whisper hf_transfer SpeechRecognition PyAudio
 curl -LsSf https://hf.co/cli/install.sh | bash
 hf download mlx-community/whisper-large-v3-turbo --local-dir ./whisper/whisper-large-v3-turbo
 ```
-**5. ...and now to configure some variables & test:**
+**5. 'Hack' to allow Terminal to use Personal Voice:**
+
+It seems to me, the best way to make this work, is to paste this code into your Terminal app.. and let it run.
+```bash
+echo '#import <AVFoundation/AVFoundation.h>
+int main(){ 
+[AVSpeechSynthesizer requestPersonalVoiceAuthorizationWithCompletionHandler:^(AVSpeechSynthesisPersonalVoiceAuthorizationStatus status){ 
+printf("Status: %ld\\n", (long)status); }]; 
+[[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:2.0]]; 
+return 0; }' > auth_check.m && gcc -framework AVFoundation -framework Foundation auth_check.m -o auth_check && ./auth_check
+```
+You'll get an `authorization` pop-up to agree to and n MacOS settings (under Personal Voice), you should now see that Terminal is authorized to use it.
+
+**6. ...and now to configure some variables & test:**
 
 Ensuring you're in the directory, 'orac-voice',
 Open orac_chat.py in an editor, such as BBEdit and change these variables **(ONLY)** to suit.
