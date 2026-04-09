@@ -42,7 +42,7 @@ voice_pitch = 80.0 	# Only works on SYNTH voices and not SIRI voices.
 U1 = 0.06 											# Teletype Speed
 U2 = 0.071 											# Teletype Uniformity
 
-TRANSCRIPT_DIR = ''			                        # A Directory called orac_transcripts will be created.
+TRANSCRIPT_DIR = ''			                        # Set location. Default is within project folder.
 TR = "ORAC_Transcript_CM" 							# Transcript Name Prefix (Date will be added).
 
 YOUR_NAME = "Jenna" 								# USER Name and Identity
