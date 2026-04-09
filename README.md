@@ -61,8 +61,8 @@ ollama pull gemma2:9b-simco
 ```
 **3. Git Clone Project and enter Project Directory:**
 ```bash
-git clone https://github.com/CarolinaJones/Orac-Voice.git
-cd Orac-Voice 
+git clone https://github.com/CarolinaJones/orac-voice.git
+cd orac-voice 
 ```
 **IMPORTANT: Stay in this directory for entire installation.**
 
@@ -114,7 +114,7 @@ https://voicebox.sh/#download
 
 **7. ...and now to configure some variables & test:**
 
-Ensuring you're in the directory, 'Orac-Voice',
+Ensuring you're in the directory, 'orac-voice',
 open 'orac_chat.py' in an editor, such as BBEdit and change these variables **(ONLY)** to suit.
 
 `VOICE = ""` 	# Leave blank to use the "System Voice" - This allows for SIRI/Personal Voices.
@@ -142,7 +142,7 @@ TERMINAL SETTINGS:
 
 `TERMINAL_ROWS = 35` # Window Height
 
-**..and then (From Orac-Voice Folder):**
+**..and then (From orac-voice Folder):**
 ```bash
 source orac-venv/bin/activate
 python3 orac_voice.py
