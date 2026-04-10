@@ -10,7 +10,7 @@
 
 There currently seems to be a bug with the most recent versions of this app, preventing it from starting in full screen. If that doesn't matter to you, grab the latest version.
 
-I recommend version 1.20 for this project.
+I recommend version 1.20 for this project. (Be aware it does run through Rosetta.)
 ```bash
 https://github.com/Swordfish90/cool-retro-term/releases
 ````
