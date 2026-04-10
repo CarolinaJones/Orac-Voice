@@ -49,6 +49,8 @@ You will need Homebrew installed to grab `portaudio`(required for PyAudio/microp
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# (Follow the instructions after install, to add Homebrew to your path.)
+
 brew install portaudio pyenv
 ```
 Instructions for setting up `pyenv` can be found here:
@@ -60,7 +62,7 @@ https://github.com/pyenv/pyenv?tab=readme-ov-file
 **2. Install Ollama and the model:**
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull gemma2:9b-simco
+ollama pull mannix/gemma2-9b-simpo:latest
 ```
 **3. Git Clone Project and enter Project Directory:**
 ```bash
@@ -82,9 +84,9 @@ pyenv local 3.12
 
 **4. Install Required Python Libraries:**
 ```bash
-pip install sounddevice==0.4.3 mlx-whisper hf_transfer SpeechRecognition PyAudio ollama numpy python-vlc pip-review PyObjC psutil
+pip install mlx-whisper hf_transfer SpeechRecognition PyAudio ollama numpy PyObjC psutil
 ```
-`sounddevice` `and python-vlc` are not strictly required at this time.
+... next
 ```bash
 curl -LsSf https://hf.co/cli/install.sh | bash
 hf download mlx-community/whisper-large-v3-turbo --local-dir ./whisper/whisper-large-v3-turbo
