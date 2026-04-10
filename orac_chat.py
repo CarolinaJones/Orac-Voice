@@ -27,7 +27,7 @@ from orac_data_core import data_core
 from orac_personality import orac_personality
 
 #---------------------------------------------------#
-#     ORAC-VOICE v1.0.0 (Lore friendly VoiceChat)	#
+#     ORAC-VOICE v1.0.1 (Lore friendly VoiceChat)	#
 #          Copyright © 2026 Caroline Mayne			#
 #		   https://github.com/CarolinaJones/	   	#
 #––––––––––––––––––––––––––––––––––––––––––––-----––#
@@ -42,7 +42,7 @@ voice_pitch = 80.0 	# Only works on SYNTH voices and not SIRI/Personal voices.
 U1 = 0.06 											# Teletype Speed
 U2 = 0.071 											# Teletype Uniformity
 
-TRANSCRIPT_DIR = ''			                        # Set location. Default is within project folder.
+TRANSCRIPT_DIR = ''									# A Directory called orac_transcripts will be created.
 TR = "ORAC_Transcript_CM" 							# Transcript Name Prefix (Date will be added).
 
 YOUR_NAME = "Jenna" 								# USER Name and Identity
@@ -53,16 +53,16 @@ TERMINAL_PROFILE = "Homebrew"						# Terminal Profile
 TERMINAL_FONT = "AdwaitaMono Nerd Font Mono"		# Font Name
 TERMINAL_FONT_SIZE = 17								# Font Size
 TERMINAL_COLS = 100									# Window Width
-TERMINAL_ROWS = 35									# Window Height
+TERMINAL_ROWS = 30									# Window Height
 
-# IT SHOULD NOT BE NECESSAY TO CHANGE ANYTHING BELOW THIS LINE #
+# IT SHOULD NOT BE NECESSARY TO CHANGE ANYTHING BELOW THIS LINE #
 #--------------------------------------------------------------------------------------------------#
 
 #------------------#
 # MODEL VARIABLES  #
 #------------------#
 
-OLLAMA_MODEL = 'mannix/gemma2-9b-simpo:latest'		# gemmea2:9b-simpo WORKS best for ORAC
+OLLAMA_MODEL = 'mannix/gemma2-9b-simpo:latest'		# gemma2:9b-simpo WORKS best for ORAC
 MODEL_MAX_TOKENS = 8192								# MAX TOKENS for STATUS Predict & NUM_CTX
 WHISPER_MODEL = './whisper/whisper-large-v3-turbo'	# WHISPER-MLX Model
 
@@ -72,7 +72,7 @@ WHISPER_MODEL = './whisper/whisper-large-v3-turbo'	# WHISPER-MLX Model
 
 G, A, R, B = "\033[38;5;46m", "\033[38;5;214m", "\033[38;5;196m", "\033[1;37m"
 FL, NOFL, DIM, RESET = "\033[5m", "\033[25m", "\033[2m", "\033[0m"
-BR = "\x1b[1;31m" # Bold Bright Red
+BR = "\x1b[1;31m" # Bold Bright Red (Not currently using)
 IT, NOIT = "\x1B[3m","\x1B[23m" # Italics on and off
 
 # Get the directory of the current script for absolute paths
@@ -118,6 +118,7 @@ class OracState:
         self.is_listening = threading.Event()
         self.is_shutdown = threading.Event()
         self.is_interrupted = threading.Event()
+        self.mic_error = False
         
         self.active_procs = []
         self.history = [] 
@@ -144,19 +145,21 @@ def cleanup_processes():
         termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, old_term_settings)
     
     try:
-        sys.stdout.write("\033[?1000l\033[?1006l") # Disable Mouse Tracking
-        sys.stdout.write("\033[?1049l") # Exit Alternate Screen Buffer
-        sys.stdout.write("\033[1;r\033[?25h\n") # Reset scroll region and show cursor
+        sys.stdout.write("\033[?1000l\033[?1006l") 	# Disable Mouse Tracking
+        sys.stdout.write("\033[?1049l") 			# Exit Alternate Screen Buffer
+        sys.stdout.write("\033[r\033[?25h\n") 		# Reset scroll region and show cursor
         sys.stdout.flush()
     except: pass
     
     if 'processing_sound' in globals() and processing_sound.is_running():
         processing_sound.stop()
         
-    for proc in state.active_procs:
-        try:
-            if proc and proc.poll() is None: proc.terminate()
-        except Exception: pass
+    # Attempt resolution of crashing on exit
+    with state.proc_lock:
+        for proc in state.active_procs:
+            try:
+                if proc and proc.poll() is None: proc.terminate()
+            except Exception: pass
 
 atexit.register(cleanup_processes)
 
@@ -305,6 +308,22 @@ def ui_refresh_worker():
             else:
                 resume_live_view()   # Restore the chat history
             render_input_box()       # Restore the typing prompt
+            
+            # Exiting fullscreen pushes the native cursor to the absolute bottom row, 
+            # breaking the teletype scroll region. Force the cursor back where it belongs.
+            cols, rows = shutil.get_terminal_size()
+            lines = get_wrapped_history_lines(cols)
+            
+            # Calculate exactly where the teletype cursor should resume
+            if state.scroll_offset > 0:
+                target_row = rows - 4
+            else:
+                target_row = min(rows - 4, 5 + len(lines))
+                
+            with state.terminal_lock:
+                sys.stdout.write(f"\033[{target_row};1H")
+                sys.stdout.flush()
+                
         elif counter >= 5: 
             update_header_only()
             counter = 0
@@ -525,7 +544,12 @@ class MacTTS:
                         processing_sound.stop()
                         end_proc = play_once(SOUND_COMPUTE_END)
                         if end_proc:
-                            end_proc.wait() 
+                            try:
+                                end_proc.wait(timeout=1.0) 
+                            except Exception:
+                                pass
+                            
+                            time.sleep(0.6) # Delay so orac_shutdown and prompt sound don't overlap
                     
                     state.is_speaking.clear()
                     time.sleep(0.2) 
@@ -719,11 +743,51 @@ def trigger_barge_in(tts, teletype):
     state.is_processing.clear() 
     time.sleep(0.5) 
 
+def process_text_input(user_text, tts, teletype):
+    bot_busy = state.is_speaking.is_set() or state.is_processing.is_set() or teletype.is_typing.is_set() or not tts.queue.empty()
+    if bot_busy:
+        trigger_barge_in(tts, teletype)
+        time.sleep(0.1)
+
+    if any(cmd in user_text.lower() for cmd in SHUTDOWN_CMD):
+        threading.Thread(target=shutdown_sequence, args=(tts,), daemon=True).start()
+        return
+        
+    if any(cmd in user_text.lower() for cmd in PURGE_CMD):
+        state.history.clear()
+        state.full_message_log.clear()
+        if state.scroll_offset > 0: resume_live_view()
+        with state.terminal_lock:
+            sys.stdout.write(f"\n●{R} LOGIC ARRAYS RESET{RESET}\n\n")
+            sys.stdout.flush()
+        set_status("● MEMORY PURGED", R)
+        tts.say("Very well. State your enquiry.")
+        return
+
+    state.full_message_log.append(('user', user_text))
+    if len(state.full_message_log) > 2000: state.full_message_log.pop(0)
+    if state.scroll_offset > 0: resume_live_view()
+    
+    with state.terminal_lock:
+        sys.stdout.write(f"\r\033[2K{B}{IT}{YOUR_NAME}{NOIT} ▶ {user_text}{RESET}\n\n")
+        sys.stdout.flush()
+        
+    state.is_interrupted.clear()
+    state.is_listening.clear()
+    state.is_processing.set()
+    threading.Thread(target=stream_ai_response, args=(user_text, tts, teletype), daemon=True).start()
+
 def keyboard_listener(tts, teletype):
     fd = sys.stdin.fileno()
     
     try:
         tty.setcbreak(fd)
+        # DISABLE ISIG: Stop the OS from sending SIGINT to the frozen Main Thread 
+        # and instead allow background thread to read CTRL+C as raw text (\x03)
+        attrs = termios.tcgetattr(fd)
+        attrs[3] = attrs[3] & ~termios.ISIG
+        termios.tcsetattr(fd, termios.TCSANOW, attrs)
+        
         while state.running:
             if state.is_shutdown.is_set(): 
                 time.sleep(0.1)
@@ -771,17 +835,15 @@ def keyboard_listener(tts, teletype):
                         if not state.is_shutdown.is_set(): render_input_box()
                         trigger_barge_in(tts, teletype)
                     elif char == '\x03': 
-                        # Route Ctrl+C as a clean text command so it can be cancelled!
-                        state.submitted_text = "shut down"
-                        state.input_ready.set()
                         state.input_buffer = ""
                         if not state.is_shutdown.is_set(): render_input_box()
+                        process_text_input("shut down", tts, teletype)
                     elif char in ('\r', '\n'): 
                         if state.input_buffer.strip():
-                            state.submitted_text = state.input_buffer.strip()
-                            state.input_ready.set()
-                        state.input_buffer = ""
-                        if not state.is_shutdown.is_set(): render_input_box()
+                            user_text = state.input_buffer.strip()
+                            state.input_buffer = ""
+                            if not state.is_shutdown.is_set(): render_input_box()
+                            process_text_input(user_text, tts, teletype)
                     elif char in ('\x7f', '\b'): 
                         state.input_buffer = state.input_buffer[:-1]
                         if not state.is_shutdown.is_set(): render_input_box()
@@ -798,14 +860,27 @@ def keyboard_listener(tts, teletype):
                             render_input_box()
     except Exception: pass
 
-def speak_now(teletype):
+def speak_now(tts, teletype):
+    idle_fault_counter = 0
     while state.running:
-        if state.is_listening.wait(timeout=0.5):
-            if not state.is_speaking.is_set() and not state.is_processing.is_set() and not teletype.is_typing.is_set() and not state.is_shutdown.is_set():
-                # Inject the dynamic traffic-light color into the triangle
+        # Check if ORAC is currently doing anything at all
+        bot_busy = state.is_speaking.is_set() or state.is_processing.is_set() or teletype.is_typing.is_set() or not tts.queue.empty() or state.is_shutdown.is_set()
+        
+        if bot_busy:
+            idle_fault_counter = 0 # Reset watchdog
+        else:
+            if state.is_listening.is_set():
+                idle_fault_counter = 0 # Mic is active and healthy
                 tc = state.token_color
                 set_status(f"● INITIATE VOICE COMMUNICATIONS {tc}{FL}▶{NOFL}{RESET}", G)
-            time.sleep(0.1)
+            else:
+                # ORAC is completely idle, but the mic hasn't turned back on...
+                idle_fault_counter += 1
+                if idle_fault_counter > 6: # Wait 3 seconds (6 * 0.5s tick)
+                    # The main thread is deadlocked. Force the UI to fallback mode!
+                    set_status(f"{FL}●{NOFL} HARDWARE DISCONNECTED: KEYBOARD ONLY", R)
+        
+        time.sleep(0.5)
 
 def shutdown_sequence(tts):
     if state.is_shutdown.is_set(): return True
@@ -835,6 +910,11 @@ def shutdown_sequence(tts):
         
         try:
             tty.setcbreak(fd)
+            # Disable ISIG here so CTRL+C works if mashed at the prompt
+            attrs = termios.tcgetattr(fd)
+            attrs[3] = attrs[3] & ~termios.ISIG
+            termios.tcsetattr(fd, termios.TCSANOW, attrs)
+            
             termios.tcflush(sys.stdin, termios.TCIFLUSH)
             while True:
                 if select.select([sys.stdin], [], [], 0.1)[0]:
@@ -895,7 +975,8 @@ def shutdown_sequence(tts):
         sys.stdout.flush()
         
     state.running = False 
-    sys.exit(0)
+    cleanup_processes() # Manually clean up terminal visuals/sounds
+    os._exit(0) # Forcefully trashes the process, ignoring frozen audio threads
 
 def startup_animation():
     setup_terminal() 
@@ -1040,7 +1121,7 @@ def stream_ai_response(prompt, tts, teletype):
         state.history.append({'role': 'assistant', 'content': clean_history_text})
         state.full_message_log.append(('assistant', clean_history_text))
     else:
-        # INTERRUPTED COMPLETION
+        # Interruption Completed
         with teletype.q.mutex: teletype.q.queue.clear()
         teletype.is_typing.clear()
         
@@ -1053,30 +1134,39 @@ def stream_ai_response(prompt, tts, teletype):
     state.is_processing.clear()
     state.is_interrupted.clear()
     
+    if getattr(state, 'mic_error', False):
+        set_status(f"{FL}●{NOFL} HARDWARE DISCONNECTED: KEYBOARD ONLY", R)
+    
 def is_hallucination(text):
     if len(text) < 30 and HALLUCINATION_REGEX.search(text.lower()): return True
     return False
 
 def run_local_bot():
-    recognizer = sr.Recognizer()
-    recognizer.dynamic_energy_threshold = False 
-    recognizer.pause_threshold = 0.8 
-    recognizer.non_speaking_duration = 0.3 
-    recognizer.phrase_threshold = 0.5 
-    
     tts = MacTTS()
     teletype = TeletypeUI()
 
-    threading.Thread(target=speak_now, args=(teletype,), daemon=True).start()
+    threading.Thread(target=speak_now, args=(tts, teletype), daemon=True).start()
     threading.Thread(target=keyboard_listener, args=(tts, teletype), daemon=True).start()
     threading.Thread(target=ui_refresh_worker, daemon=True).start() 
     
     startup_animation()
-    needs_prompt = True
     
     while state.running: # OUTER RECOVERY LOOP
         try:
+            # Fresh recognizer every time hardware connects to prevent ghosties
+            # Might need to adjust idle_fault_counter wait .. currently 3 secs
+            recognizer = sr.Recognizer()
+            recognizer.dynamic_energy_threshold = False 
+            recognizer.pause_threshold = 0.8 
+            recognizer.non_speaking_duration = 0.3 
+            recognizer.phrase_threshold = 0.5 
+            
+            # Reset the prompt beep flag so it chimes when the mic reconnects..
+            # This isn't working as anticiapted.. Need to test some more.
+            needs_prompt = True
+            
             with sr.Microphone(sample_rate=16000) as source: 
+                state.mic_error = False
                 with state.terminal_lock: 
                     sys.stdout.write(f"● {R}CALIBRATING AMBIENT NOISE...{RESET}\n")
                     sys.stdout.flush()
@@ -1091,45 +1181,7 @@ def run_local_bot():
                     
                     if not bot_busy and processing_sound.is_running(): processing_sound.stop()
 
-                    if state.input_ready.is_set():
-                        if bot_busy:
-                            trigger_barge_in(tts, teletype)
-                            time.sleep(0.1) 
-                        
-                        user_text = state.submitted_text
-                        state.input_ready.clear()
-                        
-                        if any(cmd in user_text.lower() for cmd in SHUTDOWN_CMD):
-                            if not shutdown_sequence(tts): continue # Ignores break if cancelled
-                            break
-                            
-                        if any(cmd in user_text.lower() for cmd in PURGE_CMD):
-                            state.history.clear()
-                            state.full_message_log.clear()
-                            if state.scroll_offset > 0: resume_live_view()
-                            with state.terminal_lock:
-                                sys.stdout.write(f"\n●{R} LOGIC ARRAYS RESET{RESET}\n\n")
-                                sys.stdout.flush()
-                            set_status("● MEMORY PURGED", R)
-                            tts.say("   Very well. State your enquiry.")
-                            continue
-                            
-                        state.full_message_log.append(('user', user_text))
-                        
-                        # Only keep the last 2000 Interactions
-                        if len(state.full_message_log) > 2000:
-                        	state.full_message_log.pop(0)
-                        	
-                        if state.scroll_offset > 0: resume_live_view()
-                        
-                        with state.terminal_lock:
-                            sys.stdout.write(f"\r\033[2K{B}{IT}{YOUR_NAME}{NOIT} ▶ {user_text}{RESET}\n\n")
-                            sys.stdout.flush()
-                        state.is_interrupted.clear()
-                        state.is_processing.set()
-                        threading.Thread(target=stream_ai_response, args=(user_text, tts, teletype), daemon=True).start()
-                        continue
-
+                    
                     if bot_busy:
                         needs_prompt = True 
                         time.sleep(0.1) 
@@ -1188,30 +1240,43 @@ def run_local_bot():
                         if user_text:
                             state.full_message_log.append(('user', user_text))
                             
-                            if len(state.full_message_log) > 2000:  # Keep last ~2000 interactions
-                            	state.full_message_log.pop(0)
-                            	
+                            if len(state.full_message_log) > 2000:
+                                state.full_message_log.pop(0)
+                                
                             if state.scroll_offset > 0: resume_live_view()
                             
                             with state.terminal_lock:
                                 sys.stdout.write(f"\r\033[2K{B}{IT}{YOUR_NAME}{NOIT} ▶ {user_text}{RESET}\n\n")
                                 sys.stdout.flush()
-                            state.is_interrupted.clear() 
+                            state.is_interrupted.clear()
+                            state.is_listening.clear() 
                             state.is_processing.set() 
                             threading.Thread(target=stream_ai_response, args=(user_text, tts, teletype), daemon=True).start()
 
-                    except sr.WaitTimeoutError: continue
-                    except Exception as e:
-                        with state.terminal_lock:
-                            sys.stdout.write(f"\n{R}{FL}●{NOFL} ERROR in signal processing: {e}{RESET}\n")
-                            sys.stdout.flush()
-                        time.sleep(2)
+                    except sr.WaitTimeoutError: 
                         continue
+                    except Exception as e:
+                        # INNER LOOP EXCEPTION: Mic was unplugged during response
+                        # Clear the flags and update UI before macOS deadlocks the hardware cleanup
+                        # Still not working as anticipated - Will continue testing.
+                        state.is_listening.clear()
+                        state.mic_error = True
+                        set_status(f"{FL}●{NOFL} HARDWARE DISCONNECTED: KEYBOARD ONLY", R)
+                        break 
                         
         except KeyboardInterrupt: 
             if not shutdown_sequence(tts):
-                continue # Re-initialize mic if Ctrl+C shutdown is cancelled
+                continue
             break
+            
+        except Exception as e:
+            # OUTER LOOP EXCEPTION: The Mic could not be found or initialized...
+            # Triggers Text-Only Mode UI and sleeps for 3 seconds before trying to reconnect.
+            # I'm not reaching this state - More work to be done to refine.
+            state.is_listening.clear()
+            state.mic_error = True
+            set_status(f"{FL}●{NOFL} MIC DISCONNECTED: KEYBOARD ONLY", R)
+            time.sleep(3)
             
 if __name__ == "__main__":
     run_local_bot()
