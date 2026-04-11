@@ -895,13 +895,13 @@ def speak_now(tts, teletype):
             else:
                 # MIC disconnected and will no longer be available in this session (THIS NEEDS WORK - Re-detection, etc.)
                 idle_fault_counter += 1
-                if idle_fault_counter > 6: # Wait 3 seconds (6 x 0.5s tick) to prevent false triggers during calibration
+                if idle_fault_counter > 10: # Wait 5 seconds (10 x 0.5s tick) to prevent false triggers during calibration
                     # Force the UI to fallback mode
                     state.mic_error = True
                     set_status(f"{FL}●{NOFL} HARDWARE DISCONNECTED: KEYBOARD ONLY", R)
                     update_header_only() # Instantly reflect the ERR in the stats bar
         
-        time.sleep(0.5)
+        time.sleep(0.6)
 
 def shutdown_sequence(tts):
     if state.is_shutdown.is_set(): return True
