@@ -1,0 +1,5 @@
+in the terminal app, change to directory of mysay executable and type ./mysay and approve access.
+
+If you need to re-compile, use:
+
+gcc -x objective-c -framework AVFoundation -framework Foundation mysay.c -o mysay
