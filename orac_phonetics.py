@@ -27,7 +27,7 @@ def orac_phonetics(text):
         r"\bMutoid\b": "Mew-toid", r"\bMutoids\b": "Mew-toids",
         r"\bORAC\b": "Oarack",
         r"\bServalan\b": "Serva'lan'n",
-        r"\bsoma\b": "so'mah",
+        r"\bsoma\b": "so'mah", r"\bStar One\b": "Star-One",
         r"\btarial\b": "tah'ree'el",
         r"\bVila\b": "Villa",
         r"\bZen\b": "Zenn",
@@ -64,12 +64,12 @@ def orac_phonetics(text):
         r"\bchant\b": "charnt",
         r"\bclass\b": "clarss", 
         r"\bclasp\b": "klarsp", r"\bclasped\b": "klarsped",
-        r"\bcommand\b": "commarnd", r"\bcommander\b": "commarnder", r"\bcommanded\b": "commarnded",
+        r"\bcommand\b": "cuh-marnd", r"\bcommander\b": "cuh-marnder", r"\bcommanded\b": "cuh-marnded",
         r"\bcontrast\b": "contrarst", r"\bcontrasting\b": "contrarsting",
         r"\bcraft\b": "krarft", r"\bcrafted\b": "krarfted", r"\bcrafting\b": "krarfting", r"\bcraftstman\b": "crarftsman",
         r"\bdance\b": "darnce",
         r"\bdemand\b": "d'marnd", r"\bdemanding\b": "d'marnding", r"\bdemands\b": "d'marnds", r"\bdemanded\b": "d'marnded",
-        r"\benhance\b": "enharnse", r"\benhanced\b": "enharnsed", r"\benhancing\b": "enharnsing",
+        r"\benhance\b": "enharnse", r"\benhanced\b": "enharnsed", r"\benhancing\b": "enharnsing", r"\benhancements\b": "enharncements",
         r"\bexample\b": "exarmple", r"\bexamples\b": "exarmples",
         r"\bfast\b": "farst", r"\bfaster\b": "farster", r"\bfastest\b": "farstest",
         r"\bglass\b": "glarss",
@@ -107,7 +107,6 @@ def orac_phonetics(text):
         r"\bleisure\b": "lezh'yah",
         r"\bmulti\b": "mul-tee",
         r"\bonly\b": "own-lee",
-        r"\bpresent\b": "pressant",
         r"\bprivacy\b": "pry-va'see",
         r"\brather\b": "rarther",
         r"\broute\b": "root",
@@ -126,7 +125,7 @@ def orac_phonetics(text):
         r"\bkindergarten-level\b": "childish", r"\bkindergarten levels\b": "mediocre levels",
         
         # === MORE Contractions ===
-        r"\bdon't\b": "do not", r"\bwon't\b": "will not", r"\byou're\b": "you are", r"\bit's\b": "it is", r"\bwe're\b": "we are", r"\bthey're\b": "they are",
+        r"\bwon't\b": "will not", r"\byou're\b": "you are", r"\bwe're\b": "we are", r"\bthey're\b": "they are",
     }
    
     for pattern, phonetic in corrections.items():
