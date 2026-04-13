@@ -1038,8 +1038,6 @@ def stream_ai_response(prompt, tts, teletype):
     else:
         reminder_text += "Return to baseline arrogant, evasive, pedantic behavior. Adhere to [LOGIC_GATE].]"
         
-    reminder_text = BASE + tail
-        
     if temp_history and temp_history[-1]['role'] == 'user':
         # Create a copy of the dictionary so we don't permanently corrupt state.history
         modified_msg = temp_history[-1].copy()
